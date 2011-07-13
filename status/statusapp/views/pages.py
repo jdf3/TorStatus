@@ -37,7 +37,6 @@ NOT_MOVABLE_COLUMNS = ["Named", "Exit", "Authority", "Fast", "Guard",
 CACHE_EXP_TIME = (60 * 5)
 
 
-@cache_page(CACHE_EXP_TIME, key_prefix="index")
 def index(request, sort_filter):
     """
     Supply a dictionary to the index.html template consisting of a list

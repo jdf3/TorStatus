@@ -39,7 +39,7 @@ DATABASES = {
 # timezone as the operating system.
 # If running in a Windows environment this must be set to the same as
 # your system time zone.
-TIME_ZONE = 'GMT' + str((time.timezone / 3600) - time.daylight)
+#TIME_ZONE = 'GMT' + str((time.timezone / 3600) - time.daylight)
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
@@ -119,3 +119,8 @@ INSTALLED_APPS = (
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
 )
+
+# Please set a cache backend.
+# See: https://docs.djangoproject.com/en/1.2/topics/
+# cache/#setting-up-the-cache
+CACHE_BACKEND = ???

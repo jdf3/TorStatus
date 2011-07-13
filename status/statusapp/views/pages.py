@@ -34,8 +34,10 @@ NOT_MOVABLE_COLUMNS = ["Named", "Exit", "Authority", "Fast", "Guard",
                        "Stable", "Running", "Valid", "V2Dir",
                        "Platform",]
 
+CACHE_EXP_TIME = (60 * 5)
 
-#@cache_page(60 * 15) #, key_prefix="index")
+
+@cache_page(CACHE_EXP_TIME, key_prefix="index")
 def index(request, sort_filter):
     """
     Supply a dictionary to the index.html template consisting of a list
@@ -176,7 +178,7 @@ def index(request, sort_filter):
                        'client_address': client_address,
                        'num_routers': num_routers,
                        'in_query': in_query,
-                       'exp_time': 900,
+                       'exp_time': CACHE_EXP_TIME,
                        'counts': counts,
                        'total_counts': total_counts,
                        'bw_disp': bw_disp,

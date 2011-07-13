@@ -60,10 +60,11 @@ enter all necessary data into the database to run TorStatus.
 If you have not done so already, get the most preview of TorStatus:
 
     | $ git clone https://github.com/dcalderon/TorStatus
-    | $ git checkout preview
+    | $ git checkout preview2
 
 Now change directory to TorStatus/status and edit config.template such
-that TorStatus can connect to the database just built. Save these changes
+that TorStatus can connect to the database just built. Additionally,
+specify a cache_backend to be used for caching pages. Save these changes
 to a file called "settings.py". Note that if you are not using password
 verification for the "metrics" user in postgres, you may leave the
 'password' field blank.

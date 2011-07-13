@@ -46,8 +46,8 @@
 	<td class="boxTitle" colspan="2">Application Server Details</td>
 </tr>
 <tr id="row_appServerDetails">
-	<td>Cache Last Updated (Local Server Time):</td>
-    <td>{{ cache_updated }}</td>
+	<td>Current Page Last Cached (local server time):</td>
+    <td>{% now "Y-m-d H:i:s" %}</td>
 </tr>
 <tr id="row_appServerDetails">
 	<td>Last Update Cycle Processing Time (Seconds):</td>

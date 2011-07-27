@@ -17,14 +17,14 @@ from matplotlib.figure import Figure
 from statusapp.models import Bwhist
 
 # INIT Variables ------------------------------------------------------
-COLUMN_VALUE_NAME = {'Country Code': 'geoip', 
-                     'Router Name': 'nickname', 
-                     'Bandwidth': 'bandwidthobserved', 
+COLUMN_VALUE_NAME = {'Country Code': 'country',
+                     'Router Name': 'nickname',
+                     'Bandwidth': 'bandwidthobserved',
                      'Uptime': 'uptime',
-                     'IP': 'address', 
-                     'Hostname': 'hostname', 
+                     'IP': 'address',
+                     'Hostname': 'hostname',
                      'Icons': 'icons',
-                     'ORPort': 'orport', 
+                     'ORPort': 'orport',
                      'DirPort': 'dirport',
                      'BadExit': 'isbadexit',
                      'Named': 'isnamed',
@@ -42,40 +42,38 @@ COLUMN_VALUE_NAME = {'Country Code': 'geoip',
                      'Contact': 'contact',
                      'BadDir': 'isbaddirectory',
                     }
-    
+
 NOT_COLUMNS = ['Running', 'Hostname', 'Named', 'Valid',]
-    
-ICONS = ['Fast', 'Exit', 'V2Dir', 'Guard', 'Stable', 'Authority', 
+
+ICONS = ['Fast', 'Exit', 'V2Dir', 'Guard', 'Stable', 'Authority',
          'Platform',]
 
 
-def filter_statusentries(statusentries, query_options):
+def filter_active_relays(active_relays, query_options):
     """
-    Helper function that gets a QuerySet of status entries and a
-    dictionary of search query options and filteres the QuerySet
+    Helper function that gets a QuerySet of ActiveRelays and a
+    dictionary of search query options and filters the QuerySet
     based on this dictionary.
 
-    @type statusentries: C{QuerySet}
-    @param statusentries: A QuerySet of the statusentries.
+    @type active_relays: C{QuerySet}
+    @param active_relays: A QuerySet of the active relays.
     @type query_options: C{dict}
-    @param query_options: A list of the columns that will be displayed on 
-                        this session.
-    
-    @see: index
+    @param query_options: A list of the columns that will be displayed
+        in this session.
     @rtype: QuerySet
     @return: statusentries
     """
-
     # ADD ishibernating AFTER WE KNOW HOW TO CHECK THAT
     options = ['isauthority', 'isbaddirectory', 'isbadexit', \
-               'isexit', 'isfast', 'isguard', 'isnamed', \
-               'isstable', 'isrunning', 'isvalid', 'isv2dir']
-    # options is needed because query_options has some other things that we
-    #      do not need in this case (the other search query key-values).
+               'isexit', 'isfast', 'isguard', 'ishibernating',
+               'isnamed', 'isstable', 'isrunning', 'isvalid', 'isv2dir']
+    # options is needed because query_options has some other things
+    # that we do not need in this case (the other search query
+    # key-values).
     valid_options = filter(lambda k: query_options[k] != '' \
                             and k in options, query_options)
     filterby = {}
-    for opt in valid_options: 
+    for opt in valid_options:
         filterby[opt] = 1 if query_options[opt] == 'yes' else 0
 
     if 'searchValue' in query_options and \
@@ -84,10 +82,9 @@ def filter_statusentries(statusentries, query_options):
         criteria = query_options['criteria']
         logic = query_options['boolLogic']
 
-        options = ['nickname', 'fingerprint', 'geoip',
+        options = ['nickname', 'fingerprint', 'country',
                    'published','hostname', 'address',
                    'orport', 'dirport']
-        descriptorlist_options = ['platform', 'uptime', 'bandwidthobserved']
 
         # Special case for the value if searching for
         #       Uptime or Bandwidth and the criteria is
@@ -96,9 +93,7 @@ def filter_statusentries(statusentries, query_options):
                 logic != 'contains':
             value = int(value) * (86400 if criteria == 'uptime' else 1024)
 
-
-        key = ('descriptorid__' + criteria) if criteria in \
-                descriptorlist_options else criteria
+        key = criteria
 
         if logic == 'contains':
             key = key + '__contains'
@@ -116,29 +111,26 @@ def filter_statusentries(statusentries, query_options):
         else:
             filterby[key] = value
 
-    statusentries = statusentries.filter(**filterby)
+    active_relays = active_relays.filter(**filterby)
 
-    options = ['nickname', 'fingerprint', 'geoip', 'bandwidthobserved',
-               'uptime', 'published', 'hostname', 'address', 'orport', 
-               'dirport', 'platform', 'isauthority', 
-               'isbaddirectory', 'isbadexit', 'isexit',
-               'isfast', 'isguard', 'isnamed', 'isstable', 'isrunning', 
-               'isvalid', 'isv2dir']
+    options = set(('nickname', 'fingerprint', 'country',
+               'bandwidthobserved', 'uptime', 'published', 'hostname',
+               'address', 'orport', 'dirport', 'platform',
+               'isauthority', 'isbaddirectory', 'isbadexit', 'isexit',
+               'isfast', 'isguard', 'isnamed', 'isstable', 'isrunning',
+               'isvalid', 'isv2dir'))
 
-    descriptorlist_options = ['platform', 'uptime', 'contact', 
-                            'bandwidthobserved']
-    if 'sortListings' in query_options: 
+    if 'sortListings' in query_options:
         selected_option = query_options['sortListings']
     else:
         selected_option = ''
     if selected_option in options:
-        if selected_option in descriptorlist_options:
-            selected_option = 'descriptorid__' + selected_option
         if query_options['sortOrder'] == 'ascending':
-            statusentries = statusentries.order_by(selected_option)
+            active_relays = active_relays.order_by(selected_option)
         elif query_options['sortOrder'] == 'descending':
-            statusentries = statusentries.order_by('-' + selected_option)
-    return statusentries
+            active_relays = active_relays.order_by(
+                            '-' + selected_option)
+    return active_relays
 
 def button_choice(request, button, field, current_columns,
         available_columns):
@@ -149,16 +141,15 @@ def button_choice(request, button, field, current_columns,
     @type button: C{string}
     @param button: A string that indicates which button was clicked.
     @type field: C{string}
-    @param field: A string that indicates from which prefereces column was 
-                the corresponding value selected (ADD column, REMOVE
-                column).
+    @param field: A string that indicates from which preferences column
+        was the corresponding value selected
+        (ADD column, REMOVE column).
     @type current_columns: C{list}
-    @param current_columns: A list of the columns that will be displayed on 
-                        this session.
+    @param current_columns: A list of the columns that will be
+        displayed on this session.
     @type available_columns: C{list}
-    @param available_columns: A list of the columns that can be added to the 
-                        current ones.
-    
+    @param available_columns: A list of the columns that can be added
+        to the current ones.
     @rtype: list(list(int), list(int), string)
     @return: column_lists
     """
@@ -190,24 +181,6 @@ def button_choice(request, button, field, current_columns,
     column_lists.append(available_columns)
     column_lists.append(selection)
     return column_lists
-
-
-def get_exit_policy(rawdesc):
-    """
-    Gets the exit policy information from the raw descriptor
-
-    @type rawdesc: C{string} or C{buffer}
-    @param rawdesc: The raw descriptor of a relay.
-    @rtype: C{list} of C{string}
-    @return: all lines in rawdesc that comprise the exit policy.
-    """
-    policy = []
-    rawdesc_array = str(rawdesc).split("\n")
-    for line in rawdesc_array:
-        if (line.startswith(("accept ", "reject "))):
-            policy.append(line)
-
-    return policy
 
 
 def is_ip_in_subnet(ip, subnet):
@@ -435,23 +408,23 @@ def get_if_exists(request, title):
 
 def sorting_link(sort_order, column_name):
     """
-    Returns the proper URL after checking how the sorting is currently set up.
-    
+    Returns the proper URL after checking how the sorting is currently
+    set up.
+
     @type sort_order: C{string}
-    @param sort_order: A string - the type of order (ascending/descending).
+    @param sort_order: A string - the type of order
+        (ascending/descending).
     @type column_name: C{string}
-    @param column_name: A string - the name of the column that is 
+    @param column_name: A string - the name of the column that is
                     currently ordering by.
-    
     @rtype: C{string}
     @return The proper link for sorting the tables.
     """
-    
     if sort_order == "ascending":
         return "/" + column_name + "_descending"
     return "/" + column_name + "_ascending"
-    
- 
+
+
 def kilobytes_ps(bytes_ps):
     """
     Convert a bandwidth value in bytes to a bandwidth value in kilobytes
@@ -467,7 +440,7 @@ def kilobytes_ps(bytes_ps):
         return 0
     else:
         return int(bytes_ps) / 1024
-        
+
 
 def days(seconds):
     """
@@ -484,7 +457,7 @@ def days(seconds):
         return 0
     else:
         return int(seconds) / 86400
-        
+
 
 def contact(rawdesc):
     """
@@ -503,59 +476,15 @@ def contact(rawdesc):
             contact_raw = line[8:]
             return contact_raw.decode('raw_unicode_escape')
     return "No contact information given"
-    
-
-def country(location):
-    """
-    Get the country associated with a tuple as a string consisting of
-    a country, a latitude, and a longitude.
-
-    >>> getcountry('(US,-43.0156,68.2351)')
-    'US'
-
-    @type location: C{string}
-    @param location: A tuple consisting of a country, latitude, and
-        longitude as a string.
-    @rtype: C{string}
-    @return: The country code in the tuple as a string.
-    """
-    return location[1:3].lower()
-
-
-def latitude(geoip):
-    """
-    Get the latitude from a GeoIP string.
-
-    @type geoip: C{string} or C{buffer}
-    @param geoip: A string formatted as a tuple with entries country
-        code, latitude, and longitude.
-    @rtype: C{string}
-    @return: The latitude associated with C{geoip}.
-    """
-    return str(geoip).split(',')[1]
-
-
-def longitude(geoip):
-    """
-    Get the longitude from a GeoIP string.
-
-    @type geoip: C{string} or C{buffer}
-    @param geoip: A string formatted as a tuple with entries country
-        code, latitude, and longitude.
-    @rtype: C{string}
-    @return: The longitude associated with C{geoip}.
-    """
-    return str(geoip).strip('()').split(',')[2]
 
 
 def get_platform(platform):
     """
-    Method that searches in the platform string for the corresponding 
+    Method that searches in the platform string for the corresponding
     platform name.
-    
+
     @type platform: C{string}
     @param platform: A string, raw version of the platform of a relay.
-    
     @rtype: C{string}
     @return: The cleaned version of the platform name.
     """
@@ -569,10 +498,12 @@ def get_platform(platform):
                            'NetBSD': 'NetBSD',
                            'OpenBSD': 'OpenBSD',
                            'SunOS': 'SunOS',
-                           'IRIX': 'IRIX', 
+                           'IRIX': 'IRIX',
                            'Cygwin': 'Cygwin',
                            'Dragon': 'Dragon',
                           }
+    if platform is None:
+        return None
     for name in supported_platforms:
         if name in platform:
             return supported_platforms[name]
@@ -580,28 +511,28 @@ def get_platform(platform):
 
 
 def generate_table_headers(current_columns, order_column_name, sort_order):
-    """ 
-    Generates a dictionary of {header_name: html_string_code}. 
-    
+    """
+    Generates a dictionary of {header_name: html_string_code}.
+
     @type current_columns: C{list}
-    @param current_columns: A list of the columns that will be displayed on 
-                    this session.
+    @param current_columns: A list of the columns that will be
+        displayed on this session.
     @type order_column_name: C{string}
-    @param order_column_name: A string - the name of the column that is 
-                    currently ordering by.
+    @param order_column_name: A string - the name of the column that is
+        currently ordering by.
     @type sort_order: C{string}
-    @param sort_order: A string - the type of order (ascending/descending).
-    
+    @param sort_order: A string - the type of order
+        (ascending/descending).
     @rtype: C{dict}, C{list}
     @return: Dictionary that contains the header name and the HTML code.
         List of the current columns that will be displayed.
     """
-    
+
     # NOTE: The html_current_columns list is needed to preserve the order
     #   of the displayed columns. It is used in the template to iterate
     #   through the current columns in the right order that they should be
     #   displayed.
-    
+
     html_table_headers = {}
     html_current_columns = []
     for column in current_columns:
@@ -614,8 +545,8 @@ def generate_table_headers(current_columns, order_column_name, sort_order):
             elif sort_order == 'descending':
                 sort_arrow = "&darr;"
         html_class = "relayHeader hoverable" if database_name != "icons" \
-                                                else "relayHeader"    
-                                           
+                                                else "relayHeader"
+
         if column not in ICONS and column not in NOT_COLUMNS:
             if column == "Icons":
                 if filter(lambda c: c in current_columns, ICONS):
@@ -632,61 +563,60 @@ def generate_table_headers(current_columns, order_column_name, sort_order):
                                     + "'>" + display_name + " " + sort_arrow +\
                                     "</a></th>"
                 html_current_columns.append(column)
-    return html_table_headers, html_current_columns 
-    
-    
-def generate_table_rows(statusentries, current_columns, html_current_columns):
+    return html_table_headers, html_current_columns
+
+
+def generate_table_rows(statusentries, current_columns,
+        html_current_columns):
     """
-    Generates a list of HTML strings. Each string represents a row in the 
-    main template table.
-    
+    Generates a list of HTML strings. Each string represents a row in
+    the main template table.
+
     @type statusentries: C{QuerySet}
     @param statusentries: A QuerySet of the statusentries.
     @type current_columns: C{list}
-    @param current_columns: A list of the columns that will be displayed on 
-                    this session.
+    @param current_columns: A list of the columns that will be displayed
+        on this session.
     @type html_current_columns: C{list}
-    @param html_current_columns: A list of the HTML string version of the 
-                    current columns.
-    
+    @param html_current_columns: A list of the HTML string version of
+        the current columns.
+
     @rtype: C{list}
     @return: List of HTML strings.
     """
-    
     html_table_rows = []
-    
+
     for relay in statusentries:
-    
-        #TODO: CLEAN THE CODE - QUERY ONLY ON THE NECESSARY COLUMNS 
+        #TODO: CLEAN THE CODE - QUERY ONLY ON THE NECESSARY COLUMNS
         #               AND THROW IN DICTIONARY AFTERWARDS!!!
-        
-        # Declarations made in order to avoid multiple queries. 
-        r_isbadexit = relay.isbadexit      
+        # Declarations made in order to avoid multiple queries.
+        r_isbadexit = relay.isbadexit
         field_isbadexit = "<img src='static/img/bg_" + \
                         ("yes" if r_isbadexit else "no") + \
                         ".png' width='12' height='12' alt='" + \
                         ("Bad Exit' title='Bad Exit'" \
                         if r_isbadexit else \
-                        "Not a Bad Exit' title='Not a Bad Exit'") + ">"  
-        field_geoip = relay.geoip
+                        "Not a Bad Exit' title='Not a Bad Exit'") + ">"
+        field_country = str(relay.country)
+        field_latitude = str(relay.latitude)
+        field_longitude = str(relay.longitude)
         field_isnamed = relay.isnamed
         field_fingerprint = relay.fingerprint
         field_nickname = relay.nickname
-        field_bandwidthobserved = str(kilobytes_ps(relay.descriptorid.bandwidthobserved)) + \
-                                  " KB/s"
-        field_uptime = str(days(relay.descriptorid.uptime)) + " d"
+        field_bandwidthobserved = str(relay.bandwidthkbps) + ' KB/s'
+        field_uptime = str(relay.uptimedays) + ' d'
         r_address = relay.address
-        field_address = "[<a href='details/" + r_address + "/whois'>" + \
-                        r_address + "</a>]"
+        field_address = "[<a href='details/" + r_address + \
+                        "/whois'>" + r_address + "</a>]"
         field_published = str(relay.published)
-        field_contact = contact(relay.descriptorid.rawdesc)
+        field_contact = relay.contact
         r_isbaddir = relay.isbaddirectory
         field_isbaddirectory = "<img src='static/img/bg_" + \
                         ("yes" if r_isbaddir else "no") + \
                         ".png' width='12' height='12' alt='" + \
                         ("Bad Directory' title='Bad Directory'" \
                         if r_isbaddir else "Not a Bad Directory' \
-                        title='Not a Bad Directory'") + ">"                   
+                        title='Not a Bad Directory'") + ">"
         field_isfast = "<img src='static/img/status/Fast.png' \
                         alt='Fast Server' title='Fast Server'>" \
                         if relay.isfast else ""
@@ -705,7 +635,7 @@ def generate_table_rows(statusentries, current_columns, html_current_columns):
         field_isauthority = "<img src='static/img/status/Authority.png' \
                         alt='Authority Server' title='Authority Server'>" \
                         if relay.isauthority else ""
-        r_platform = relay.descriptorid.platform
+        r_platform = relay.platform
         r_os_platform = get_platform(r_platform)
         field_platform = "<img src='static/img/os-icons/" + r_os_platform + \
                         ".png' alt='" + r_os_platform + "' title='" + \
@@ -713,10 +643,12 @@ def generate_table_rows(statusentries, current_columns, html_current_columns):
         field_orport = str(relay.orport)
         r_dirport = str(relay.dirport)
         field_dirport = r_dirport if r_dirport else "None"
-        
-        
+
+
         RELAY_FIELDS = {'isbadexit': field_isbadexit,
-                        'geoip': field_geoip,
+                        'country': field_country,
+                        'latitude': field_latitude,
+                        'longitude': field_longitude,
                         'isnamed': field_isnamed,
                         'fingerprint': field_fingerprint,
                         'nickname': field_nickname,
@@ -728,36 +660,36 @@ def generate_table_rows(statusentries, current_columns, html_current_columns):
                         'isbaddirectory': field_isbaddirectory,
                         'isfast': field_isfast,
                         'isv2dir': field_isv2dir,
-                        'isexit': field_isexit, 
+                        'isexit': field_isexit,
                         'isguard': field_isguard,
                         'isstable': field_isstable,
                         'isauthority': field_isauthority,
                         'platform': field_platform,
                         'orport': field_orport,
                         'dirport': field_dirport,
-                       }                  
-                        
+                       }
+
         html_row_code = ''
-        
+
         if 'isbadexit' in RELAY_FIELDS:
             html_row_code = "<tr " + ("class='relayBadExit'" if r_isbadexit \
                             else "class='relay'") + ">"
         else:
             html_row_code = "<tr class='relay'>"
-            
+
         for column in html_current_columns:
             value_name = COLUMN_VALUE_NAME[column]
-            
+
             # Special Case: Country Code
             if column == 'Country Code':
-                c_country = country(RELAY_FIELDS[value_name])
-                c_latitude = latitude(RELAY_FIELDS[value_name])
-                c_longitude = longitude(RELAY_FIELDS[value_name])               
+                c_country = RELAY_FIELDS[value_name]
+                c_latitude = RELAY_FIELDS['latitude']
+                c_longitude = RELAY_FIELDS['longitude']
                 html_row_code = html_row_code + "<td id='col_relayName'> \
                                 <a href='http://www.openstreetmap.org/?mlon="\
                                  + c_longitude + "&mlat=" + c_latitude + \
                                  "&zoom=6'><img src='static/img/flags/" + \
-                                 c_country + ".gif' alt='" + c_country + \
+                                 c_country.lower() + ".gif' alt='" + c_country + \
                                  "' title='" + c_country + ":" + c_latitude +\
                                  ", " + c_longitude + "' border=0></a></td>"
             # Special Case: Router Name and Named
@@ -785,31 +717,31 @@ def generate_table_rows(statusentries, current_columns, html_current_columns):
                         html_icons = html_icons + RELAY_FIELDS[value_icon]
                 html_icons = html_icons + "</td>"
                 html_row_code = html_row_code + html_icons
-            else:              
+            else:
                 html_row_code = html_row_code + "<td id='col_relay" + column \
                                 + "'>" + RELAY_FIELDS[value_name] + "</td>"
+        html_row_code = html_row_code + "</tr>"
+        html_table_rows.append(html_row_code)
 
-        html_row_code = html_row_code + "</tr>"          
-        html_table_rows.append(html_row_code)  
-        
     return html_table_rows
-    
-    
+
+
 def generate_query_list_options(query_options):
     """
-    Generates the HTML version of each option in the Query List Options field.
-    
+    Generates the HTML version of each option in the Query List Options
+    field.
+
     @type query_options: C{dict}
     @param query_options: A dictionary of the current query options.
-    
     @rtype: C{list}
-    @return: List of strings - each string represents the HTML version of 
-        an option.
+    @return: List of strings - each string represents the HTML version
+        of an option.
     """
-    #TODO: Finish this. It will clean up the Advanced Query Options search.  
+    # TODO: Finish this. It will clean up the
+    # Advanced Query Options search.
     LIST_OPTIONS = {'Router Name': 'nickname',
                     'Fingerprint': 'fingerprint',
-                    'Country Code': 'geoip',
+                    'Country Code': 'country',
                     'Bandwidth': 'bandwidthobserved',
                     'Uptime': 'uptime',
                     'Last Descriptor Published': 'published',
@@ -825,246 +757,9 @@ def generate_query_list_options(query_options):
                     'Exit': 'isexit',
                     'Fast': 'isfast',
                     'Guard': 'isguard',
-                    #'Hibernating': 'ishibernating',
+                    'Hibernating': 'ishibernating',
                     'Named': 'isnamed',
                     'Stable': 'isstable',
                     'Valid': 'isvalid',
                     'Directory': 'isv2dir',
                    }
-    html_query_list_options = []    
-    for option in LIST_OPTIONS:
-        list_option = "<option value='" + LIST_OPTIONS[option] + "'"
-        if (query_options and query_options['sortListings'] == 
-                LIST_OPTIONS[option]):
-            list_option = list_option + " SELECTED>" + option + "</option>"
-        else: 
-            list_option = list_option + ">" + option + "</option>"
-        html_query_list_options.append(list_option)
-    return html_query_list_options
-                    
-    
-
-
-def draw_bar_graph(xs, ys, labels, params):
-    """
-    Draws a bar graph, given data points, labels, and presentation
-    parameters.
-
-    @type xs: C{list}
-    @param xs: The x values to be plotted.
-    @type ys: C{list}
-    @param ys: The y values to be plotted.
-    @type labels: C{list} of C{string}
-    @param labels: The labels to be used for each data point, where
-        C{labels[i]} labels C{(xs[i], ys[i])}.
-    @type params: C{dict} of C{string} and C{int}
-    @param params: Parameters specifying how the graph is to be drawn.
-        Params must contain the keys: WIDTH, HEIGHT, TOP_MARGIN,
-        BOTTOM_MARGIN, LEFT_MARGIN, RIGHT_MARGIN, X_FONT_SIZE,
-        Y_FONT_SIZE, LABEL_FONT_SIZE, FONT_WEIGHT, BAR_WIDTH,
-        COLOR, LABEL_FLOAT, LABEL_ROT, and TITLE.
-    @rtype: HttpResponse
-    @return: The graph as specified by the parameters given.
-    """
-    ## Get the parameters from the params dictionary
-    # Width and height of the graph in pixels
-    WIDTH = params['WIDTH']
-    HEIGHT = params['HEIGHT']
-    # Space in pixels given around plot
-    TOP_MARGIN = params['TOP_MARGIN']
-    BOTTOM_MARGIN = params['BOTTOM_MARGIN']
-    LEFT_MARGIN = params['LEFT_MARGIN']
-    RIGHT_MARGIN = params['RIGHT_MARGIN']
-    # Font sizes, in pixels
-    X_FONT_SIZE = params['X_FONT_SIZE']
-    Y_FONT_SIZE = params['Y_FONT_SIZE']
-    LABEL_FONT_SIZE = params['LABEL_FONT_SIZE']
-    # How many pixels above each bar the labels should be
-    LABEL_FLOAT = params['LABEL_FLOAT']
-    # How the labels should be presented
-    LABEL_ROT = params['LABEL_ROT']
-    # Font weight used for labels and titles
-    FONT_WEIGHT = params['FONT_WEIGHT']
-    BAR_WIDTH = params['BAR_WIDTH']
-    COLOR = params['COLOR']
-    # Title of graph
-    TITLE = params['TITLE']
-
-    # Set margins according to specification.
-    matplotlib.rcParams['figure.subplot.left'] = \
-            float(LEFT_MARGIN) / WIDTH
-    matplotlib.rcParams['figure.subplot.right'] = \
-            float(WIDTH - RIGHT_MARGIN) / WIDTH
-    matplotlib.rcParams['figure.subplot.top'] = \
-            float(HEIGHT - TOP_MARGIN) / HEIGHT
-    matplotlib.rcParams['figure.subplot.bottom'] = \
-            float(BOTTOM_MARGIN) / HEIGHT
-
-    # Draw the figure.
-    width_inches = float(WIDTH) / 80
-    height_inches = float(HEIGHT) / 80
-    fig = Figure(facecolor='white', edgecolor='black',
-                 figsize=(width_inches, height_inches), frameon=False)
-    ax = fig.add_subplot(111)
-
-    # Plot the data.
-    ax.bar(xs, ys, color=COLOR, width=BAR_WIDTH)
-
-    # Label the height of each bar.
-    label_float_ydist = ax.get_ylim()[1] * LABEL_FLOAT / (
-                        HEIGHT - TOP_MARGIN - BOTTOM_MARGIN)
-    num_params = len(xs)
-    for i in range(num_params):
-        ax.text(xs[i] + (BAR_WIDTH / 2.0),
-                ys[i] + (label_float_ydist), str(ys[i]),
-                fontsize=LABEL_FONT_SIZE, horizontalalignment='center')
-
-    x_index = matplotlib.numpy.arange(num_params)
-    ax.set_xticks(x_index + (BAR_WIDTH / 2.0))
-    ax.set_xticklabels(labels, fontsize=X_FONT_SIZE,
-                       fontweight=FONT_WEIGHT, rotation=LABEL_ROT)
-
-    for tick in ax.yaxis.get_major_ticks():
-        tick.label1.set_fontsize(Y_FONT_SIZE)
-        tick.label1.set_fontweight(FONT_WEIGHT)
-
-    ax.set_title(TITLE, fontsize='12', fontweight=FONT_WEIGHT)
-
-    canvas = FigureCanvas(fig)
-    response = HttpResponse(content_type='image/png')
-    canvas.print_png(response, ha="center")
-    return response
-
-def draw_line_graph(fingerprint, bwtype, color, shade):
-    """
-    Draws a line graph with given data points and display parameters.
-
-    @type fingerprint: C{string}
-    @param fingerprint: The fingerprint of the router that the graph
-        is to be drawn for.
-    @type bwtype: C{string}
-    @param bwtype: Either 'read' or 'written', depending on whether the
-        graph to be drawn will be of recent read bandwidth or recent
-        written bandwdith.
-    @type color: C{string}
-    @param color: The color to draw the line graph with.
-    @type shade: C{string}
-    @param shade: The color to shade under the line graph.
-    @rtype: HttpResponse
-    @return: The graph as specified by the parameters given.
-    """
-    # Width and height of the graph in pixels
-    WIDTH = 480
-    HEIGHT = 320
-    # Space in pixels given around plot
-    TOP_MARGIN = 42
-    BOTTOM_MARGIN = 32
-    LEFT_MARGIN = 98
-    RIGHT_MARGIN = 5
-    # Font sizes, in pixels
-    X_FONT_SIZE = '8'
-    Y_FONT_SIZE = '8'
-    # Font weight used for labels and titles.
-    FONT_WEIGHT = 'bold'
-
-    # Set margins according to specification.
-    matplotlib.rcParams['figure.subplot.left'] = \
-            float(LEFT_MARGIN) / WIDTH
-    matplotlib.rcParams['figure.subplot.right'] = \
-            float(WIDTH - RIGHT_MARGIN) / WIDTH
-    matplotlib.rcParams['figure.subplot.top'] = \
-            float(HEIGHT - TOP_MARGIN) / HEIGHT
-    matplotlib.rcParams['figure.subplot.bottom'] = \
-            float(BOTTOM_MARGIN) / HEIGHT
-
-    last_hist = Bwhist.objects.filter(fingerprint=fingerprint)\
-                .order_by('-date')[:1][0]
-
-    if bwtype == 'Read':
-        t_start, t_end, tr_list = last_hist.read
-    elif bwtype == 'Written':
-        t_start, t_end, tr_list = last_hist.written
-
-    recent_date = last_hist.date
-    recent_time = datetime.datetime.combine(recent_date,
-                  datetime.time())
-
-    # It's possible that we might be missing some entries at the
-    # beginning; add values of 0 in this case.
-    tr_list[0:0] = ([0] * t_start)
-
-    # We want to have 96 data points in our graph; if we don't have
-    # them, get some data points from the day before, if we can.
-    to_fill = 96 - len(tr_list)
-
-    start_time = recent_time - datetime.timedelta(
-                 minutes=(15 * to_fill))
-    end_time = start_time + datetime.timedelta(
-               days=1) - datetime.timedelta(minutes=15)
-
-    # If less than 96 entries in the array, get earlier entries.
-    # If they don't exist, fill in the array with '0' values.
-    if to_fill:
-        day_before = last_hist.date - datetime.timedelta(days=1)
-
-        try:
-            day_before_hist = Bwhist.objects.get(\
-                    fingerprint=fingerprint,
-                    date=str(day_before))
-            if bwtype == 'Read':
-                y_start, y_end, y_list = day_before_hist.read
-            elif bwtype == 'Written':
-                y_start, y_end, y_list = day_before_hist.written
-            y_list.extend([0] * (95 - y_end))
-            y_list[0:0] = ([0] * y_start)
-
-        except ObjectDoesNotExist:
-            y_list = ([0] * 96)
-        tr_list[0:0] = y_list[(-1 * to_fill):]
-
-    width_inches = float(WIDTH) / 80
-    height_inches = float(HEIGHT) / 80
-    fig = Figure(facecolor='white', edgecolor='black',
-                 figsize=(width_inches, height_inches), frameon=False)
-    ax = fig.add_subplot(111)
-
-    # Return bytes per second, not total bandwidth for 15 minutes.
-    bps = map(lambda x: x / (15 * 60), tr_list)
-    times = []
-    for i in range(0, 104, 8):
-        to_add_date = start_time + datetime.timedelta(minutes=(15 * i))
-        to_add_str = "%0*d:%0*d" % (2, to_add_date.hour,
-                                    2, to_add_date.minute)
-        times.append(to_add_str)
-
-    dates = range(96)
-
-    # Draw the graph and give the graph a light shade underneath it.
-    ax.plot(dates, bps, color=color)
-    ax.fill_between(dates, 0, bps, color=shade)
-
-    ax.set_xlabel("Time (GMT)", fontsize='12')
-    ax.set_xticks(range(0, 104, 8))
-    ax.set_xticklabels(times, fontsize=X_FONT_SIZE,
-                       fontweight=FONT_WEIGHT)
-
-    ax.set_ylabel("Bandwidth (bytes/sec)", fontsize='12')
-
-    # Don't extend the y-axis to negative numbers, in any circumstance.
-    ax.set_ylim(ymin=0)
-
-    # Don't use scientific notation.
-    ax.yaxis.major.formatter.set_scientific(False)
-    for tick in ax.yaxis.get_major_ticks():
-        tick.label1.set_fontsize(Y_FONT_SIZE)
-        tick.label1.set_fontweight(FONT_WEIGHT)
-
-    ax.set_title("Average Bandwidth " + bwtype + " History:\n"
-            + start_time.strftime("%Y-%m-%d %H:%M") + " to "
-            + end_time.strftime("%Y-%m-%d %H:%M"), fontsize='12',
-            fontweight=FONT_WEIGHT)
-
-    canvas = FigureCanvas(fig)
-    response = HttpResponse(content_type='image/png')
-    canvas.print_png(response, ha="center")
-    return response

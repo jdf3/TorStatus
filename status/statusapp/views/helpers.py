@@ -32,6 +32,7 @@ COLUMN_VALUE_NAME = {'Country Code': 'country',
                      'Authority': 'isauthority',
                      'Fast': 'isfast',
                      'Guard': 'isguard',
+                     'Hibernating': 'ishibernating',
                      'Stable': 'isstable',
                      'Running': 'isrunning',
                      'Valid': 'isvalid',
@@ -45,8 +46,8 @@ COLUMN_VALUE_NAME = {'Country Code': 'country',
 
 NOT_COLUMNS = ['Running', 'Hostname', 'Named', 'Valid',]
 
-ICONS = ['Fast', 'Exit', 'V2Dir', 'Guard', 'Stable', 'Authority',
-         'Platform',]
+ICONS = ['Hibernating', 'Fast', 'Exit', 'V2Dir', 'Guard', 'Stable',
+         'Authority', 'Platform',]
 
 
 def filter_active_relays(active_relays, query_options):
@@ -63,7 +64,6 @@ def filter_active_relays(active_relays, query_options):
     @rtype: QuerySet
     @return: statusentries
     """
-    # ADD ishibernating AFTER WE KNOW HOW TO CHECK THAT
     options = ['isauthority', 'isbaddirectory', 'isbadexit', \
                'isexit', 'isfast', 'isguard', 'ishibernating',
                'isnamed', 'isstable', 'isrunning', 'isvalid', 'isv2dir']
@@ -86,9 +86,8 @@ def filter_active_relays(active_relays, query_options):
                    'published','hostname', 'address',
                    'orport', 'dirport']
 
-        # Special case for the value if searching for
-        #       Uptime or Bandwidth and the criteria is
-        #       not Contains
+        # Special case: the value if searching for uptime or
+        # bandwidth and the criteria is not Contains
         if (criteria == 'uptime' or criteria == 'bandwidthobserved') and \
                 logic != 'contains':
             value = int(value) * (86400 if criteria == 'uptime' else 1024)
@@ -117,8 +116,8 @@ def filter_active_relays(active_relays, query_options):
                'bandwidthobserved', 'uptime', 'published', 'hostname',
                'address', 'orport', 'dirport', 'platform',
                'isauthority', 'isbaddirectory', 'isbadexit', 'isexit',
-               'isfast', 'isguard', 'isnamed', 'isstable', 'isrunning',
-               'isvalid', 'isv2dir'))
+               'isfast', 'isguard', 'ishibernating', 'isnamed',
+               'isstable', 'isrunning', 'isvalid', 'isv2dir'))
 
     if 'sortListings' in query_options:
         selected_option = query_options['sortListings']
@@ -500,14 +499,14 @@ def get_platform(platform):
                            'SunOS': 'SunOS',
                            'IRIX': 'IRIX',
                            'Cygwin': 'Cygwin',
-                           'Dragon': 'Dragon',
+                           'Dragon': 'DragonFly',
                           }
     if platform is None:
-        return None
+        return 'NotAvailable'
     for name in supported_platforms:
         if name in platform:
             return supported_platforms[name]
-    return None
+    return 'NotAvailable'
 
 
 def generate_table_headers(current_columns, order_column_name, sort_order):
@@ -527,12 +526,10 @@ def generate_table_headers(current_columns, order_column_name, sort_order):
     @return: Dictionary that contains the header name and the HTML code.
         List of the current columns that will be displayed.
     """
-
     # NOTE: The html_current_columns list is needed to preserve the order
-    #   of the displayed columns. It is used in the template to iterate
-    #   through the current columns in the right order that they should be
-    #   displayed.
-
+    # of the displayed columns. It is used in the template to iterate
+    # through the current columns in the right order that they should be
+    # displayed.
     html_table_headers = {}
     html_current_columns = []
     for column in current_columns:
@@ -566,7 +563,7 @@ def generate_table_headers(current_columns, order_column_name, sort_order):
     return html_table_headers, html_current_columns
 
 
-def generate_table_rows(statusentries, current_columns,
+def generate_table_rows(active_relays, current_columns,
         html_current_columns):
     """
     Generates a list of HTML strings. Each string represents a row in
@@ -586,7 +583,7 @@ def generate_table_rows(statusentries, current_columns,
     """
     html_table_rows = []
 
-    for relay in statusentries:
+    for relay in active_relays:
         #TODO: CLEAN THE CODE - QUERY ONLY ON THE NECESSARY COLUMNS
         #               AND THROW IN DICTIONARY AFTERWARDS!!!
         # Declarations made in order to avoid multiple queries.
@@ -597,6 +594,7 @@ def generate_table_rows(statusentries, current_columns,
                         ("Bad Exit' title='Bad Exit'" \
                         if r_isbadexit else \
                         "Not a Bad Exit' title='Not a Bad Exit'") + ">"
+        r_ishibernating = True if relay.ishibernating else False
         field_country = str(relay.country)
         field_latitude = str(relay.latitude)
         field_longitude = str(relay.longitude)
@@ -629,19 +627,23 @@ def generate_table_rows(statusentries, current_columns,
         field_isguard = "<img src='static/img/status/Guard.png' \
                         alt='Guard Server' title='Guard Server'>" \
                         if relay.isguard else ""
+        field_ishibernating = "<img src='static/img/status/Hibernating.png' \
+                              alt='Hibernating Server' title= \
+                              'Hibernating Server'" \
+                              if r_ishibernating else ""
         field_isstable = "<img src='static/img/status/Stable.png' \
                         alt='Stable Server' title='Stable Server'>" \
                         if relay.isstable else ""
         field_isauthority = "<img src='static/img/status/Authority.png' \
                         alt='Authority Server' title='Authority Server'>" \
                         if relay.isauthority else ""
-        r_platform = relay.platform
+        r_platform = relay.platform if relay.platform else 'Not Available'
         r_os_platform = get_platform(r_platform)
         field_platform = "<img src='static/img/os-icons/" + r_os_platform + \
                         ".png' alt='" + r_os_platform + "' title='" + \
                         r_platform + "'>" if r_os_platform else ""
         field_orport = str(relay.orport)
-        r_dirport = str(relay.dirport)
+        r_dirport = str(relay.dirport) if relay.dirport else "None"
         field_dirport = r_dirport if r_dirport else "None"
 
 
@@ -659,6 +661,7 @@ def generate_table_rows(statusentries, current_columns,
                         'contact': field_contact,
                         'isbaddirectory': field_isbaddirectory,
                         'isfast': field_isfast,
+                        'ishibernating': field_ishibernating,
                         'isv2dir': field_isv2dir,
                         'isexit': field_isexit,
                         'isguard': field_isguard,
@@ -671,9 +674,10 @@ def generate_table_rows(statusentries, current_columns,
 
         html_row_code = ''
 
-        if 'isbadexit' in RELAY_FIELDS:
-            html_row_code = "<tr " + ("class='relayBadExit'" if r_isbadexit \
-                            else "class='relay'") + ">"
+        if 'isbadexit' in RELAY_FIELDS and r_isbadexit:
+            html_row_code = "<tr class='relayBadExit'>"
+        elif 'ishibernating' in RELAY_FIELDS and r_ishibernating:
+            html_row_code = "<tr class='relayHibernating'>"
         else:
             html_row_code = "<tr class='relay'>"
 

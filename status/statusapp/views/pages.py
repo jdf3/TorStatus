@@ -16,7 +16,7 @@ from django.views.decorators.cache import cache_page
 
 # TorStatus specific import statements --------------------------------
 from statusapp.models import Statusentry, Descriptor, Bwhist,\
-        TotalBandwidth, ActiveRelay
+        TotalBandwidth, ActiveRelay, ActiveDescriptor
 from custom.aggregate import CountCase
 from helpers import *
 
@@ -25,14 +25,14 @@ from helpers import *
 CURRENT_COLUMNS = ["Country Code", "Router Name", "Bandwidth",
                    "Uptime", "IP", "Hostname", "Icons", "ORPort",
                    "DirPort", "BadExit", "Named", "Exit",
-                   "Authority", "Fast", "Guard", "Stable",
-                   "Running", "Valid", "V2Dir", "Platform",
+                   "Authority", "Fast", "Guard", "Hibernating",
+                   "Stable", "Running", "Valid", "V2Dir", "Platform",
                   ]
 AVAILABLE_COLUMNS = ["Fingerprint", "LastDescriptorPublished",
                      "Contact", "BadDir",]
 NOT_MOVABLE_COLUMNS = ["Named", "Exit", "Authority", "Fast", "Guard",
-                       "Stable", "Running", "Valid", "V2Dir",
-                       "Platform",]
+                       "Hibernating", "Stable", "Running", "Valid",
+                       "V2Dir", "Platform",]
 
 CACHE_EXP_TIME = (60 * 5)
 
@@ -63,7 +63,8 @@ def index(request, sort_filter):
               last=Max('validafter'))['last']
 
     active_relays = ActiveRelay.objects.filter(
-                    validafter=last_va).order_by('nickname')
+                    validafter=last_va).order_by(
+                    'nickname').select_related()
 
     num_routers = active_relays.count()
 
@@ -107,8 +108,8 @@ def index(request, sort_filter):
     order_column_name = ''
     if sort_filter:
         order_column_name, sort_order = sort_filter.split('_')
-        options = set(('nickname', 'fingerprint', 'geoip',
-                   'bandwidthkbps', 'uptimedays', 'published',
+        options = set(('nickname', 'fingerprint', 'country',
+                   'bandwidthobserved', 'uptime', 'published',
                    'hostname', 'address', 'orport', 'dirport',
                    'isbaddirectory', 'isbadexit'))
         altered_column_name = order_column_name
@@ -129,6 +130,7 @@ def index(request, sort_filter):
              isexit=CountCase('isexit', when=True),
              isfast=CountCase('isfast', when=True),
              isguard=CountCase('isguard', when=True),
+             ishibernating=CountCase('ishibernating', when=True),
              isnamed=CountCase('isnamed', when=True),
              isstable=CountCase('isstable', when=True),
              isrunning=CountCase('isrunning', when=True),
